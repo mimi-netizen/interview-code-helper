@@ -18,6 +18,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def add_error_handling(request, call_next):
+    try:
+        response = await call_next(request)
+        return response
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"message": str(e), "type": type(e).__name__}
+        )
+
 def get_db():
     db = SessionLocal()
     try:
@@ -122,4 +133,11 @@ def test_solution():
 
 @app.post("/submit")
 def submit_solution(submission: schemas.CodeSubmission, db: Session = Depends(get_db)):
-    return {"result": models.evaluate_submission(db, submission)}
+    try:
+        result = models.evaluate_submission(db, submission)
+        return {"result": result}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error evaluating submission: {str(e)}"
+        )
